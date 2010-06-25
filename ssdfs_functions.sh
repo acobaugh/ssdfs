@@ -4,12 +4,12 @@
 
 function ssdfs_base {
 	if [ "$1" = 'pending' ]; then
-		echo -n "$PENDING/$BASE"
+		echo -n "$SSDFS_PENDING/$SSDFS_BASE"
 	else
-		echo -n "$LIVE/$BASE"
+		echo -n "$SSDFS_LIVE/$SSDFS_BASE"
 	fi
 }
 
 function ssdfs_list_storage {
-	ls -al `base $1`
+	ls -al `ssdfs_base $1`
 }
