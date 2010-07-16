@@ -6,12 +6,14 @@ File / directory layout:
 			storage/
 				<storage> -> /real/path/to/mountpoint
 					vol/
-						.ssdfs_vol/
+						<vol uuid>/
 							name
 							description
 							createdBy
 							createdOn
-							size
+							volumeSize
+							diskUsage
+							content/
 			vol/
 				by-uuid/
 					<vol uuid> -> ../storage/<storage>/vol/<vol uuid>
