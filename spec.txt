@@ -1,0 +1,21 @@
+File / directory layout:
+
+<SSDFS_LIVE|SSDFS_PENDING>/
+	SSDFS_BASE/
+		.ssdfs/
+			storage/
+				<storage> -> /real/path/to/mountpoint
+					vol/
+						.ssdfs_vol/
+							name
+							description
+							createdBy
+							createdOn
+							size
+			vol/
+				by-uuid/
+					<vol uuid> -> ../storage/<storage>/vol/<vol uuid>
+				by-name/
+					<vol name> -> ../by-uuid/<vol uuid>
+
+
