@@ -10,9 +10,7 @@
 #
 # SSDFS_V_REAL_BASE - volume base path on top of storage real base path
 
-
-#export SSDFS_V_REAL_BASE SSDFS_V_LINK_BASE
-
+# Set SSDFS_VARS to the location of a shell script to set all of the above variables at once
 . $SSDFS_VARS
 
 SSDFS_VOLINFO_LIST='name description createdBy createdOn volumeSize diskUsage'
@@ -57,20 +55,64 @@ function ssdfs_storage_list {
 	done
 }
 
-# return list of 
 function ssdfs_vol_create {
-	uuid=`uuidgen`
 	storage=$1
 	name=$2
 	description=$3
-	createdBy=
+	pending=$4
+	
+	uuid=`uuidgen`
+	createdBy="$USER"
+	createdOn=$(date +%s)
+
+	if [ -e "$(ssdfs_vol_fullpath_from_name $name)" ] ; then
+		echo "Volume \"$name\" already exists."
+		exit 1
+	fi
+	
+	realpath="$(ssdfs_storage_realpath_from_name $storage)/vol/$uuid"
+	mkdir -p $realpath
+	if [ $? -eq 0 ] ; then
+		for info in "$SSDFS_VOLINFO_LIST" ; do
+			touch $realpath/$info
+		done
+		echo $name > $realpath/name
+		echo $description > $realpath/description
+		echo $createdBy > $realpath/createdBy
+		echo $createdOn > $realpath/createdOn
+		echo $uuid
+		ssdfs_update_by-uuid && ssdfs_update_by-name
+	else
+		echo "Failed to create volume $name [$uuid]."
+		echo "Path was $realpath"
+		exit 1
+	fi
 
 }
 
+# destroy volume by name, calls the destroy_by-uuid function after looking up uuid by name
+# args: <vol name> [pending]
+function ssdfs_vol_destroy_by-name {
+	name=$1
+	pending=$2
+
+	if [ -e "$(ssdfs_vol_fullpath_from_name $name $pending)" ] ; then
+		uuid=$(ssdfs_vol_get_uuid_from_name $name $pending)
+		echo "Mapped $name to $uuid"
+		ssdfs_vol_destroy_by-uuid $uuid $pending
+	else
+		echo "No volume by that name: $name"
+	fi
+}
+
+# return the would-be virtual path to a volume based on uuid
+# args: <uuid> [pending]
 function ssdfs_vol_fullpath_from_uuid {
 	echo `ssdfs_base $2`/.ssdfs/vol/by-uuid/$1
 }
 
+# return the would-be virtual path to a volume based on name
+# args: <name> [pending]
 function ssdfs_vol_fullpath_from_name {
 	echo `ssdfs_base $2`/.ssdfs/vol/by-name/$1
 }
@@ -95,14 +137,21 @@ function ssdfs_vol_get_info_by_uuid {
 }
 
 function ssdfs_vol_get_info_by_name {
-	fullpath=$(ssdfs_vol_fullpath_from_name $1 $3)
-	if [ -f $fullpath/$2 ] ; then
-		cat $fullpath/$2
+	name=$1
+	info=$2
+	pending=$3
+
+	fullpath=$(ssdfs_vol_fullpath_from_name $name $pending)
+	if [ -f $fullpath/$info ] ; then
+		cat $fullpath/$info
 	fi
 }
 
 function ssdfs_vol_get_uuid_from_name {
-	fullpath=$(ssdfs_vol_fullpath_from_name $1 $2)
+	name=$1
+	pending=$2
+
+	fullpath=$(ssdfs_vol_fullpath_from_name $name pending)
 	uuid=$(basename $(readlink $fullpath 2>/dev/null))
 	echo $uuid
 }
@@ -116,10 +165,10 @@ function ssdfs_update_by-name {
 		if [ -L "`ssdfs_base pending`/.ssdfs/vol/by-name/$volname" ] ; then
 			let i=1
 			while [ 1 ] ; do
-				if [ -L "`ssdfs_base pending`/.ssdfs/vol/by-name/$volname.CONFLICT.$i" ] ; then
+				if [ -e "`ssdfs_base pending`/.ssdfs/vol/by-name/$volname.CONFLICT.$i" ] ; then
 					let i=$i+1
 				else
-					echo ln -sf ../by-uuid/$uuid \
+					ln -sf ../by-uuid/$uuid \
 						`ssdfs_base pending`/.ssdfs/vol/by-name/$volname.CONFLICT.$i
 					echo "CONFLICT: $uuid/$volname linked as $volname.CONFLICT.$i"
 					break
