@@ -67,11 +67,11 @@ function ssdfs_vol_create {
 
 }
 
-function ssdfs_vol_uuid_fullpath {
+function ssdfs_vol_fullpath_from_uuid {
 	echo `ssdfs_base $2`/.ssdfs/vol/by-uuid/$1
 }
 
-function ssdfs_vol_name_fullpath {
+function ssdfs_vol_fullpath_from_name {
 	echo `ssdfs_base $2`/.ssdfs/vol/by-name/$1
 }
 
@@ -88,17 +88,23 @@ function ssdfs_vol_list_by-name {
 }
 
 function ssdfs_vol_get_info_by_uuid {
-	fullpath=$(ssdfs_vol_uuid_fullpath $1 $3)
+	fullpath=$(ssdfs_vol_fullpath_from_uuid $1 $3)
 	if [ -f $fullpath/$2 ] ; then
 		cat $fullpath/$2
 	fi
 }
 
 function ssdfs_vol_get_info_by_name {
-	fullpath=$(ssdfs_vol_name_fullpath $1 $3)
+	fullpath=$(ssdfs_vol_fullpath_from_name $1 $3)
 	if [ -f $fullpath/$2 ] ; then
 		cat $fullpath/$2
 	fi
+}
+
+function ssdfs_vol_get_uuid_from_name {
+	fullpath=$(ssdfs_vol_fullpath_from_name $1 $2)
+	uuid=$(basename $(readlink $fullpath 2>/dev/null))
+	echo $uuid
 }
 
 # update the .ssdfs/vol/by-name/ symlink directory
@@ -158,8 +164,8 @@ function ssdfs_mount_create {
 		echo $target already exists
 		exit 0
 	else
-		if [ -L "`ssdfs_vol_name_fullpath $volname`" ] ; then
-			ln -sf `ssdfs_vol_name_fullpath $volname`/content $target
+		if [ -L "`ssdfs_vol_fullpath_from_name $volname`" ] ; then
+			ln -sf `ssdfs_vol_fullpath_from_name $volname`/content $target
 		else 
 			echo "Unkown volume name: $volname"
 		fi
