@@ -59,83 +59,117 @@ function ssdfs_vol_create {
 	storage=$1
 	name=$2
 	description=$3
-	pending=$4
 	
-	uuid=`uuidgen`
+	uuid=$(uuidgen)
 	createdBy="$USER"
 	createdOn=$(date +%s)
 
-	if [ -e "$(ssdfs_vol_fullpath_from_name $name)" ] ; then
+	if [ -e "$(ssdfs_vol_fullpath_from_name $name pending)" ] ; then
 		echo "Volume \"$name\" already exists."
 		exit 1
 	fi
 	
-	realpath="$(ssdfs_storage_realpath_from_name $storage)/vol/$uuid"
-	mkdir -p $realpath
-	if [ $? -eq 0 ] ; then
-		for info in "$SSDFS_VOLINFO_LIST" ; do
-			touch $realpath/$info
-		done
-		echo $name > $realpath/name
-		echo $description > $realpath/description
-		echo $createdBy > $realpath/createdBy
-		echo $createdOn > $realpath/createdOn
-		echo $uuid
-		ssdfs_update_by-uuid && ssdfs_update_by-name
+	if [ -e "$(ssdfs_storage_realpath_from_name $storage)" ] ; then
+		realpath="$(ssdfs_storage_realpath_from_name $storage)/vol/$uuid"
+		echo "Creating volume on realpath $realpath"
+		mkdir -p $realpath
+		if [ $? -eq 0 ] ; then
+			for info in $SSDFS_VOLINFO_LIST ; do
+				touch $realpath/$info
+			done
+			echo $name > $realpath/name
+			echo $description > $realpath/description
+			echo $createdBy > $realpath/createdBy
+			echo $createdOn > $realpath/createdOn
+			echo New volume $name = $uuid
+			ssdfs_update_by-uuid && ssdfs_update_by-name
+		else
+			echo "Failed to create volume $name [$uuid]."
+			exit 1
+		fi
 	else
-		echo "Failed to create volume $name [$uuid]."
-		echo "Path was $realpath"
+		echo "$storage does not exist or is unknown to SSDFS."
 		exit 1
 	fi
 
 }
 
 # destroy volume by name, calls the destroy_by-uuid function after looking up uuid by name
-# args: <vol name> [pending]
+# args: <vol name> [uuid]
 function ssdfs_vol_destroy_by-name {
 	name=$1
-	pending=$2
 
-	if [ -e "$(ssdfs_vol_fullpath_from_name $name $pending)" ] ; then
-		uuid=$(ssdfs_vol_get_uuid_from_name $name $pending)
+	if [ -e "$(ssdfs_vol_fullpath_from_name $name pending)" ] ; then
+		uuid=$(ssdfs_vol_get_uuid_from_name $name pending)
 		echo "Mapped $name to $uuid"
-		ssdfs_vol_destroy_by-uuid $uuid $pending
+		ssdfs_vol_destroy_by-uuid $uuid
 	else
 		echo "No volume by that name: $name"
 	fi
 }
 
+# destroy volume by uuid
+# args: <vol uuid>
+function ssdfs_vol_destroy_by-uuid {
+	uuid=$1
+
+	realpath=$(ssdfs_vol_fullpath_from_uuid $uuid pending)
+	echo About to destroy this volume:
+	ssdfs_vol_exam_uuid $uuid
+	echo rm -rf $realpath
+}
+
 # return the would-be virtual path to a volume based on uuid
 # args: <uuid> [pending]
 function ssdfs_vol_fullpath_from_uuid {
-	echo `ssdfs_base $2`/.ssdfs/vol/by-uuid/$1
+	uuid=$1
+	pending=$2
+	echo `ssdfs_base $pending`/.ssdfs/vol/by-uuid/$uuid
 }
 
 # return the would-be virtual path to a volume based on name
 # args: <name> [pending]
 function ssdfs_vol_fullpath_from_name {
-	echo `ssdfs_base $2`/.ssdfs/vol/by-name/$1
+	name=$1
+	pending=$2
+	echo `ssdfs_base $pending`/.ssdfs/vol/by-name/$name
 }
 
+# return list of volumes by uuid
+# args: [pending]
 function ssdfs_vol_list_by-uuid {
-	for uuid in $(ls -1 `ssdfs_base $1`/.ssdfs/vol/by-uuid/) ; do
+	pending=$1
+
+	for uuid in $(ls -1 $(ssdfs_base $pending)/.ssdfs/vol/by-uuid/) ; do
 		echo $uuid
 	done
 }
 
+# return list of volume names
+# args: [pending]
 function ssdfs_vol_list_by-name {
-	for volname in $(ls -1 `ssdfs_base $1`/.ssdfs/vol/by-name/) ; do
+	pending=$1
+
+	for volname in $(ls -1 $(ssdfs_base $pending)/.ssdfs/vol/by-name/) ; do
 		echo $volname
 	done
 }
 
+# get vol info by uuid
+# args: <vol uuid> <info> [pending]
 function ssdfs_vol_get_info_by_uuid {
-	fullpath=$(ssdfs_vol_fullpath_from_uuid $1 $3)
-	if [ -f $fullpath/$2 ] ; then
-		cat $fullpath/$2
+	name=$1
+	info=$2
+	pending=$3
+
+	fullpath=$(ssdfs_vol_fullpath_from_uuid $name $pending)
+	if [ -f $fullpath/$info ] ; then
+		cat $fullpath/$info
 	fi
 }
 
+# get vol info by name
+# args: <vol name> <info> [pending]
 function ssdfs_vol_get_info_by_name {
 	name=$1
 	info=$2
@@ -147,6 +181,8 @@ function ssdfs_vol_get_info_by_name {
 	fi
 }
 
+# get uuid from the name, based on the filesystem symlinks
+# args: <vol name> [pending]
 function ssdfs_vol_get_uuid_from_name {
 	name=$1
 	pending=$2
@@ -157,6 +193,7 @@ function ssdfs_vol_get_uuid_from_name {
 }
 
 # update the .ssdfs/vol/by-name/ symlink directory
+# args:
 function ssdfs_update_by-name {
 	rm -f `ssdfs_base pending`/.ssdfs/vol/by-name/*
 	for uuid in $(ssdfs_vol_list_by-uuid pending) ; do
@@ -181,6 +218,7 @@ function ssdfs_update_by-name {
 }
 
 # update .ssdfs/vol/by-uuid/ symlink directory
+# args:
 function ssdfs_update_by-uuid {
 	rm -f `ssdfs_base pending`/.ssdfs/vol/by-uuid/* 2>/dev/null
 	for storage in `ssdfs_storage_list pending` ; do
