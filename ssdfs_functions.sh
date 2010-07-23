@@ -15,8 +15,12 @@
 
 SSDFS_VOLINFO_LIST='name description createdBy createdOn volumeSize diskUsage'
 
+# return the base directory of the filesystem
+# args: [pending]
 function ssdfs_base {
-	if [ "$1" = 'pending' ]; then
+	pending=$1
+
+	if [ "$pending" = 'pending' ]; then
 		echo -n "$SSDFS_PENDING/$SSDFS_BASE"
 	else
 		echo -n "$SSDFS_LIVE/$SSDFS_BASE"
@@ -24,37 +28,55 @@ function ssdfs_base {
 }
 
 # pretty print usage for a given storage name
+# args: <storage> [pending]
 function ssdfs_storage_usage {
-	realpath=`ssdfs_storage_realpath_from_name $1 $2`
+	storage=$1
+	pending=$2
+
+	realpath=$(ssdfs_storage_realpath_from_name $storage $pending)
 	ls $realpath >/dev/null 2>&1 
 	df -h | grep $realpath 2>&1 | awk '{ print "size=" $1, "used=" $2, "avail=" $3, $4 }'
 }
 
 # return the realpath for a given storage name
+# args: <storage> [pending]
 function ssdfs_storage_realpath_from_name {
-	readlink `ssdfs_base $2`/.ssdfs/storage/$1
+	storage=$1
+	pending=$2
+	
+	readlink $(ssdfs_base $pending)/.ssdfs/storage/$storage
 }
 
 # return name of server given storage name
+# args: <storage> [pending]
 function ssdfs_storage_server_from_name {
-	echo `ssdfs_storage_realpath_from_name $1 $2` | sed -e "s|$SSDFS_S_REAL_BASE/||;s|/$1||"
+	storage=$1
+	pending=$2
+
+	echo $(ssdfs_storage_realpath_from_name $storage $pending) | sed -e "s|$SSDFS_S_REAL_BASE/||;s|/$storage||"
 }
 
 # return list of storage names on a given server
+# args: <server full or partial hostname>
 function ssdfs_storage_list_storage_on_server {
-	for server in $(ls -1 $SSDFS_S_REAL_BASE | grep "^$1") ; do
-		echo = $server =
-		ls -1 $SSDFS_S_REAL_BASE/$server
+	server=$1
+
+	for s in $(ls -1 $SSDFS_S_REAL_BASE | grep "^$server") ; do
+		echo = $s =
+		ls -1 $SSDFS_S_REAL_BASE/$s
 	done
 }
 
 # return list of all storage
+# args: [pending]
 function ssdfs_storage_list {
-	for storage in $(ls `ssdfs_base $1`/.ssdfs/storage -1) ; do
+	for storage in $(ls $(ssdfs_base $pending)/.ssdfs/storage -1) ; do
 		echo $storage
 	done
 }
 
+# create new volume
+# args: <storage> <vol name> <vol desc>
 function ssdfs_vol_create {
 	storage=$1
 	name=$2
@@ -124,7 +146,8 @@ function ssdfs_vol_destroy_by-uuid {
 function ssdfs_vol_fullpath_from_uuid {
 	uuid=$1
 	pending=$2
-	echo `ssdfs_base $pending`/.ssdfs/vol/by-uuid/$uuid
+
+	echo $(ssdfs_base $pending)/.ssdfs/vol/by-uuid/$uuid
 }
 
 # return the would-be virtual path to a volume based on name
@@ -132,7 +155,8 @@ function ssdfs_vol_fullpath_from_uuid {
 function ssdfs_vol_fullpath_from_name {
 	name=$1
 	pending=$2
-	echo `ssdfs_base $pending`/.ssdfs/vol/by-name/$name
+
+	echo $(ssdfs_base $pending)/.ssdfs/vol/by-name/$name
 }
 
 # return list of volumes by uuid
@@ -187,7 +211,7 @@ function ssdfs_vol_get_uuid_from_name {
 	name=$1
 	pending=$2
 
-	fullpath=$(ssdfs_vol_fullpath_from_name $name pending)
+	fullpath=$(ssdfs_vol_fullpath_from_name $name $pending)
 	uuid=$(basename $(readlink $fullpath 2>/dev/null))
 	echo $uuid
 }
@@ -195,24 +219,24 @@ function ssdfs_vol_get_uuid_from_name {
 # update the .ssdfs/vol/by-name/ symlink directory
 # args:
 function ssdfs_update_by-name {
-	rm -f `ssdfs_base pending`/.ssdfs/vol/by-name/*
+	rm -f $(ssdfs_base pending)/.ssdfs/vol/by-name/*
 	for uuid in $(ssdfs_vol_list_by-uuid pending) ; do
 		volname=$(ssdfs_vol_get_info_by_uuid $uuid name pending)
 		# check for conflicts
-		if [ -L "`ssdfs_base pending`/.ssdfs/vol/by-name/$volname" ] ; then
+		if [ -L "$(ssdfs_base pending)/.ssdfs/vol/by-name/$volname" ] ; then
 			let i=1
 			while [ 1 ] ; do
-				if [ -e "`ssdfs_base pending`/.ssdfs/vol/by-name/$volname.CONFLICT.$i" ] ; then
+				if [ -e "$(ssdfs_base pending)/.ssdfs/vol/by-name/$volname.CONFLICT.$i" ] ; then
 					let i=$i+1
 				else
 					ln -sf ../by-uuid/$uuid \
-						`ssdfs_base pending`/.ssdfs/vol/by-name/$volname.CONFLICT.$i
+						$(ssdfs_base pending)/.ssdfs/vol/by-name/$volname.CONFLICT.$i
 					echo "CONFLICT: $uuid/$volname linked as $volname.CONFLICT.$i"
 					break
 				fi
 			done
 		else
-			ln -sf ../by-uuid/$uuid `ssdfs_base pending`/.ssdfs/vol/by-name/$volname
+			ln -sf ../by-uuid/$uuid $(ssdfs_base pending)/.ssdfs/vol/by-name/$volname
 		fi
 	done
 }
@@ -220,39 +244,48 @@ function ssdfs_update_by-name {
 # update .ssdfs/vol/by-uuid/ symlink directory
 # args:
 function ssdfs_update_by-uuid {
-	rm -f `ssdfs_base pending`/.ssdfs/vol/by-uuid/* 2>/dev/null
-	for storage in `ssdfs_storage_list pending` ; do
-		for uuid in $(ls -1 `ssdfs_base pending`/.ssdfs/storage/$storage/vol/ 2>/dev/null) ; do
-			ln -sf ../../storage/$storage/vol/$uuid `ssdfs_base pending`/.ssdfs/vol/by-uuid/$uuid
+	rm -f $(ssdfs_base pending)/.ssdfs/vol/by-uuid/* 2>/dev/null
+	for storage in $(ssdfs_storage_list pending) ; do
+		for uuid in $(ls -1 $(ssdfs_base pending)/.ssdfs/storage/$storage/vol/ 2>/dev/null) ; do
+			ln -sf ../../storage/$storage/vol/$uuid $(ssdfs_base pending)/.ssdfs/vol/by-uuid/$uuid
 		done
 	done
 }
 
+# display all info for a given volume by uuid
+# args: <vol uuid>
 function ssdfs_vol_exam_uuid {
 	uuid=$1
+
 	echo $uuid
 	for info in $SSDFS_VOLINFO_LIST ; do
-		echo $info = `ssdfs_vol_get_info_by_uuid $uuid $info`
+		echo $info = $(ssdfs_vol_get_info_by_uuid $uuid $info)
 	done
 }
 
+# display all info for a given volume by name
+# args: <vol name>
 function ssdfs_vol_exam_name {
 	name=$1
-	echo $name
+
+	echo $(ssdfs_vol_get_uuid_from_name $name)
 	for info in $SSDFS_VOLINFO_LIST ; do
-		echo $info = `ssdfs_vol_get_info_by_name $name $info`
+		echo $info = $(ssdfs_vol_get_info_by_name $name $info)
 	done
 }
 
+# create a mountpoint
+# args: <mountpoint name> <vol name>
 function ssdfs_mount_create {
 	target=$1
 	volname=$2
+
 	if [ -e $target ] ; then
 		echo $target already exists
 		exit 0
 	else
-		if [ -L "`ssdfs_vol_fullpath_from_name $volname`" ] ; then
-			ln -sf `ssdfs_vol_fullpath_from_name $volname`/content $target
+		if [ -L "$(ssdfs_vol_fullpath_from_name $volname)" ] ; then
+			ln -sf $(ssdfs_vol_fullpath_from_name $volname)/content $target
 		else 
 			echo "Unkown volume name: $volname"
 		fi
@@ -261,11 +294,12 @@ function ssdfs_mount_create {
 
 ## output volume name for a given mount point
 ## args: <mountpoint list>
-## output: <mountpoint> = <volume name>
 function ssdfs_mount_ls {
-	for mount in $@ ; do
-		link=`readlink $mount 2>/dev/null`
-		if [ "`basename $link 2>/dev/null`" = 'content' ] ; then
+	mountpoints=$@
+
+	for mount in $mountpoints ; do
+		link=$(readlink $mount 2>/dev/null)
+		if [ "$(basename $link 2>/dev/null)" = 'content' ] ; then
 			echo $mount = $(basename $(dirname $link))
 		fi
 	done
