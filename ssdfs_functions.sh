@@ -70,6 +70,8 @@ function ssdfs_storage_list_storage_on_server {
 # return list of all storage
 # args: [pending]
 function ssdfs_storage_list {
+	pending=$1
+
 	for storage in $(ls $(ssdfs_base $pending)/.ssdfs/storage -1) ; do
 		echo $storage
 	done
