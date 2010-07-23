@@ -258,6 +258,35 @@ function ssdfs_vol_get_uuid_from_name {
 	echo $uuid
 }
 
+# rename volume by name
+# args: <old vol name> <new vol name>
+function ssdfs_vol_rename_by_name {
+	oldname=$1
+	newname=$2
+
+	if [ -e "$(ssdfs_vol_linkpath_from_name $newname pending)" ] ; then
+		echo "Volume with name $newname already exists."
+	else
+		uuid=$(ssdfs_vol_get_uuid_from_name $oldname pending)
+		ssdfs_vol_rename_by_uuid $uuid $newname
+	fi
+}
+
+# rename volume by uuid
+# args: <old vol uuid> <new vol name>
+function ssdfs_vol_rename_by_uuid {
+	uuid=$1
+	newname=$2
+
+	if [ -e "$(ssdfs_vol_linkpath_from_name $newname pending)" ] ; then
+		echo "Volume with name $newname already exists."
+	else
+		linkpath=$(ssdfs_vol_linkpath_from_uuid $uuid pending)
+		echo $newname $linkpath/name
+		ssdfs_update_by-name
+	fi
+}
+
 # update the .ssdfs/vol/by-name/ symlink directory
 # args:
 function ssdfs_update_by-name {
