@@ -255,22 +255,24 @@ function ssdfs_update_by-uuid {
 }
 
 # display all info for a given volume by uuid
-# args: <vol uuid>
+# args: <vol uuid> [pending]
 function ssdfs_vol_exam_uuid {
 	uuid=$1
+	pending=$2
 
 	echo $uuid
 	for info in $SSDFS_VOLINFO_LIST ; do
-		echo $info = $(ssdfs_vol_get_info_by_uuid $uuid $info)
+		echo $info = $(ssdfs_vol_get_info_by_uuid $uuid $info $pending)
 	done
 }
 
 # display all info for a given volume by name
-# args: <vol name>
+# args: <vol name> [pending]
 function ssdfs_vol_exam_name {
 	name=$1
+	pending=$2
 
-	echo $(ssdfs_vol_get_uuid_from_name $name)
+	echo $(ssdfs_vol_get_uuid_from_name $name $pending)
 	for info in $SSDFS_VOLINFO_LIST ; do
 		echo $info = $(ssdfs_vol_get_info_by_name $name $info)
 	done
