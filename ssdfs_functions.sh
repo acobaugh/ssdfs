@@ -371,7 +371,7 @@ function ssdfs_mount_ls {
 	mountpoints=$@
 
 	for mount in $mountpoints ; do
-		link=$(readlink $mount 2>/dev/null)
+		link=$(readlink -f $mount 2>/dev/null)
 		if [ "$(basename $link 2>/dev/null)" = 'content' ] ; then
 			echo $mount = $(basename $(dirname $link))
 		fi
