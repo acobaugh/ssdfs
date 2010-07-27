@@ -90,7 +90,7 @@ function ssdfs_vol_create {
 
 	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
 		echo "Volume \"$name\" already exists."
-		exit 1
+		return 0
 	fi
 	
 	if [ -e "$(ssdfs_storage_realpath_from_name $storage)" ] ; then
@@ -106,10 +106,10 @@ function ssdfs_vol_create {
 			echo $createdBy > $realpath/createdBy
 			echo $createdOn > $realpath/createdOn
 			echo New volume $name = $uuid
-			ssdfs_update_by-uuid && ssdfs_update_by-name
+			ssdfs_update_by-uuid && ssdfs_update_by-name && return 1
 		else
 			echo "Failed to create volume $name [$uuid]."
-			exit 1
+			return 0
 		fi
 	else
 		echo "$storage does not exist or is unknown to SSDFS."
@@ -380,19 +380,73 @@ function ssdfs_mount_ls {
 
 # walks a path up to the symlink pointing to somewhere under SSDFS_S_REAL_BASE
 # args: <path>
+# output: <realpath> <relative path> <linkpath>
 function ssdfs_fs_expand {
 	input=$1
+
+	# I don't like doing regexes in bash
+	if [[ ! "$input" =~ '^/.+' ]] ; then
+		input="$(pwd)/$input"
+	fi
 	
 	toppath=''
 	test=$input
 
 	while [ -z "$(echo $test | egrep "^$SSDFS_S_REAL_BASE\/.+")" ] && [ "$test" != '/' ] ; do 
 		if [ -L "$test" ] ; then 
+			linkpath=$test
 			test=$(readlink -f $test)
-		fi 
-		toppath="/$(basename $test)$toppath"
-		test=$(dirname $test)
+		else 
+			toppath="/$(basename $test)$toppath"
+			test=$(dirname $test)
+		fi
 	done
 
-	echo "$test | $toppath"
+	echo "$test $toppath $linkpath"
 }
+
+# give verbose information about where a given file/directory is
+# args: <path>
+# output: <server> <storage> <linkpath> <realpath> <toppath>
+function ssdfs_fs_whereis {
+	path=$1
+
+	# ugh, this is hideous
+	expansion=$(ssdfs_fs_expand $path)
+	realpath=$(echo $expansion | cut -f 1 -d' ')
+	toppath=$(echo $expansion | cut -f 2 -d' ')
+	linkpath=$(echo $expansion | cut -f 3 -d ' ')
+
+	realpath2=$(echo $realpath | sed -e "s|$SSDFS_S_REAL_BASE/||")
+	server=$(echo $realpath2 | cut -f1 -d/)
+	storage=$(echo $realpath2 | cut -f2 -d/)
+	#realpath=$(echo $realpath2 | cut -f3- -d/)
+
+	echo "$server $storage $linkpath $realpath $toppath"
+}
+
+# split a directory out into a separate volume
+# args: <path> <new volume name> <vol description>
+function ssdfs_vol_split {
+	path=$1
+	newvolname=$2
+	description=$3
+
+	whereis=$(ssdfs_fs_whereis $path)
+
+	storage=$(echo $whereis | cut -f2 -d' ')
+	realpath=$(echo $whereis | cut -f4 -d' ')
+	toppath=$(echo $whereis | cut -f5 -d' ')
+
+	if [ "$realpath" != '/' ] ; then
+		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
+	else
+		ssdfs_vol_create $storage $newvolname "$description"
+		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
+		echo contentpath = $contentpath
+	fi
+}
+
+	
+
+
