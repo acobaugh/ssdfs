@@ -4,11 +4,24 @@ SSDFS is not a filesystem per se, rather it is (currently) a series of shell
 functions that make managing symlink farms in order to give the illusion of a
 true distributed filesystem easier.
 
-Many of the filesystem and volume level functions are near direct copies of the
+Some of the filesystem and volume level functions are near direct copies of the
 equivalent AFS or DCE/DFS commands.
 
 SSDFS is being written for BX internal usage in order to manage a symlink farm
 distrbuted via AFS, pointing to a collection of NFS exports.
 
+= Requirements =
+
+ - GNU du (with --apparent-size option)
+ - bash
+ - readlink (with -f option)
+ - GNU grep/egrep
+ - uuidgen, or equivalent tool/function to generate a UUID
+ - ls, dirname, basename, mount, cat, df, awk
+ - GNU sed
+
+
+
 More documentation is forthcoming.
+
 
