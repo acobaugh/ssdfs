@@ -378,3 +378,21 @@ function ssdfs_mount_ls {
 	done
 }
 
+# walks a path up to the symlink pointing to somewhere under SSDFS_S_REAL_BASE
+# args: <path>
+function ssdfs_fs_expand {
+	input=$1
+	
+	toppath=''
+	test=$input
+
+	while [ -z "$(echo $test | egrep "^$SSDFS_S_REAL_BASE\/.+")" ] && [ "$test" != '/' ] ; do 
+		if [ -L "$test" ] ; then 
+			test=$(readlink -f $test)
+		fi 
+		toppath="/$(basename $test)$toppath"
+		test=$(dirname $test)
+	done
+
+	echo "$test | $toppath"
+}
