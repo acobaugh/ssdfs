@@ -27,6 +27,10 @@ function ssdfs_base {
 	fi
 }
 
+##
+## Storage operations
+##
+
 # pretty print usage for a given storage name
 # args: <storage> [pending]
 function ssdfs_storage_usage {
@@ -97,87 +101,10 @@ function ssdfs_storage_list_vol_by_name {
 		
 }
 
-# create new volume
-# args: <storage> <vol name> <vol desc>
-function ssdfs_vol_create {
-	storage=$1
-	name=$2
-	description=$3
-	
-	uuid=$(uuidgen)
-	createdBy="$USER"
-	createdOn=$(date +%s)
 
-	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
-		echo "Volume \"$name\" already exists."
-		return 0
-	fi
-	
-	if [ -e "$(ssdfs_storage_realpath_from_name $storage)" ] ; then
-		realpath="$(ssdfs_storage_realpath_from_name $storage)/vol/$uuid"
-		echo "Creating volume on realpath $realpath"
-		mkdir -p $realpath
-		if [ $? -eq 0 ] ; then
-			for info in $SSDFS_VOLINFO_LIST ; do
-				touch $realpath/$info
-			done
-			echo $name > $realpath/name
-			echo $description > $realpath/description
-			echo $createdBy > $realpath/createdBy
-			echo $createdOn > $realpath/createdOn
-			echo New volume $name = $uuid
-			ssdfs_update_by-uuid && ssdfs_update_by-name && return 1
-		else
-			echo "Failed to create volume $name [$uuid]."
-			return 0
-		fi
-	else
-		echo "$storage does not exist or is unknown to SSDFS."
-		exit 1
-	fi
-
-}
-
-# destroy volume by name, calls the destroy_by-uuid function after looking up uuid by name
-# args: <vol name> [uuid]
-function ssdfs_vol_destroy_by-name {
-	name=$1
-
-	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
-		uuid=$(ssdfs_vol_get_uuid_from_name $name pending)
-		echo "Mapped volume $name to $uuid"
-		if [ $(ls -1 $(ssdfs_vol_linkpath_from_name $name.CONFLICT.* pending) 2>/dev/null | wc -l) -gt 1 ] ; then
-			echo "There are also conflicting volumes by that name:"
-			for linkpath in $(ssdfs_vol_linkpath_from_name ${name}.CONFLICT.\* pending) ; do
-				v=$(basename $linkpath)
-				echo $(ssdfs_vol_get_uuid_from_name $v pending) = $v
-			done
-			echo 
-			echo "You must delete the volume by UUID or delete or rename the CONFLICT volumes first."
-		else
-			ssdfs_vol_destroy_by-uuid $uuid
-		fi
-	else
-		echo "No volume by that name: $name"
-	fi
-}
-
-# destroy volume by uuid
-# args: <vol uuid>
-function ssdfs_vol_destroy_by-uuid {
-	uuid=$1
-
-	realpath=$(ssdfs_vol_realpath_from_uuid $uuid pending)
-	echo About to destroy this volume:
-	ssdfs_vol_exam_uuid $uuid pending
-	echo -en "Continue? y/[n]  "
-	read answer
-	if [ "$answer" = "y" ] ; then
-		rm -rf $realpath && ssdfs_update_by-uuid && ssdfs_update_by-name
-	else
-		echo rm -rf $realpath
-	fi
-}
+##
+## Volume operations
+##
 
 # return the would-be virtual path to a volume based on uuid
 # args: <uuid> [pending]
@@ -307,6 +234,137 @@ function ssdfs_vol_rename_by_uuid {
 	fi
 }
 
+# display all info for a given volume by uuid
+# args: <vol uuid> [pending]
+function ssdfs_vol_exam_uuid {
+	uuid=$1
+	pending=$2
+
+	echo uuid = $uuid
+	for info in $SSDFS_VOLINFO_LIST ; do
+		echo $info = $(ssdfs_vol_get_info_by_uuid $uuid $info $pending)
+	done
+}
+
+# display all info for a given volume by name
+# args: <vol name> [pending]
+function ssdfs_vol_exam_name {
+	name=$1
+	pending=$2
+
+	uuid=$(ssdfs_vol_get_uuid_from_name $name $pending)
+	ssdfs_vol_exam_uuid $uuid $pending
+}
+
+# create new volume
+# args: <storage> <vol name> <vol desc>
+function ssdfs_vol_create {
+	storage=$1
+	name=$2
+	description=$3
+	
+	uuid=$(uuidgen)
+	createdBy="$USER"
+	createdOn=$(date +%s)
+
+	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
+		echo "Volume \"$name\" already exists."
+		return 0
+	fi
+	
+	if [ -e "$(ssdfs_storage_realpath_from_name $storage)" ] ; then
+		realpath="$(ssdfs_storage_realpath_from_name $storage)/vol/$uuid"
+		echo "Creating volume on realpath $realpath"
+		mkdir -p $realpath
+		if [ $? -eq 0 ] ; then
+			for info in $SSDFS_VOLINFO_LIST ; do
+				touch $realpath/$info
+			done
+			echo $name > $realpath/name
+			echo $description > $realpath/description
+			echo $createdBy > $realpath/createdBy
+			echo $createdOn > $realpath/createdOn
+			echo New volume $name = $uuid
+			ssdfs_update_by-uuid && ssdfs_update_by-name && return 1
+		else
+			echo "Failed to create volume $name [$uuid]."
+			return 0
+		fi
+	else
+		echo "$storage does not exist or is unknown to SSDFS."
+		exit 1
+	fi
+
+}
+
+# destroy volume by name, calls the destroy_by-uuid function after looking up uuid by name
+# args: <vol name> [uuid]
+function ssdfs_vol_destroy_by-name {
+	name=$1
+
+	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
+		uuid=$(ssdfs_vol_get_uuid_from_name $name pending)
+		echo "Mapped volume $name to $uuid"
+		if [ $(ls -1 $(ssdfs_vol_linkpath_from_name $name.CONFLICT.* pending) 2>/dev/null | wc -l) -gt 1 ] ; then
+			echo "There are also conflicting volumes by that name:"
+			for linkpath in $(ssdfs_vol_linkpath_from_name ${name}.CONFLICT.\* pending) ; do
+				v=$(basename $linkpath)
+				echo $(ssdfs_vol_get_uuid_from_name $v pending) = $v
+			done
+			echo 
+			echo "You must delete the volume by UUID or delete or rename the CONFLICT volumes first."
+		else
+			ssdfs_vol_destroy_by-uuid $uuid
+		fi
+	else
+		echo "No volume by that name: $name"
+	fi
+}
+
+# destroy volume by uuid
+# args: <vol uuid>
+function ssdfs_vol_destroy_by-uuid {
+	uuid=$1
+
+	realpath=$(ssdfs_vol_realpath_from_uuid $uuid pending)
+	echo About to destroy this volume:
+	ssdfs_vol_exam_uuid $uuid pending
+	echo -en "Continue? y/[n]  "
+	read answer
+	if [ "$answer" = "y" ] ; then
+		rm -rf $realpath && ssdfs_update_by-uuid && ssdfs_update_by-name
+	else
+		echo rm -rf $realpath
+	fi
+}
+
+# split a directory out into a separate volume
+# args: <path> <new volume name> <vol description>
+function ssdfs_vol_split {
+	path=$1
+	newvolname=$2
+	description=$3
+
+	whereis=$(ssdfs_fs_whereis $path)
+
+	storage=$(echo $whereis | cut -f2 -d' ')
+	realpath=$(echo $whereis | cut -f4 -d' ')
+	toppath=$(echo $whereis | cut -f5 -d' ')
+
+	if [ "$realpath" != '/' ] ; then
+		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
+	else
+		ssdfs_vol_create $storage $newvolname "$description"
+		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
+		echo contentpath = $contentpath
+	fi
+}
+
+
+##
+## update_* functions
+##
+
 # update the .ssdfs/vol/by-name/ symlink directory
 # args:
 function ssdfs_update_by-name {
@@ -345,27 +403,10 @@ function ssdfs_update_by-uuid {
 	done
 }
 
-# display all info for a given volume by uuid
-# args: <vol uuid> [pending]
-function ssdfs_vol_exam_uuid {
-	uuid=$1
-	pending=$2
 
-	echo uuid = $uuid
-	for info in $SSDFS_VOLINFO_LIST ; do
-		echo $info = $(ssdfs_vol_get_info_by_uuid $uuid $info $pending)
-	done
-}
-
-# display all info for a given volume by name
-# args: <vol name> [pending]
-function ssdfs_vol_exam_name {
-	name=$1
-	pending=$2
-
-	uuid=$(ssdfs_vol_get_uuid_from_name $name $pending)
-	ssdfs_vol_exam_uuid $uuid $pending
-}
+##
+## mountpoints
+##
 
 # create a mountpoint
 # args: <mountpoint name> <vol name>
@@ -397,6 +438,10 @@ function ssdfs_mount_ls {
 		fi
 	done
 }
+
+##
+## filesystem operations
+##
 
 # walks a path up to the symlink pointing to somewhere under SSDFS_S_REAL_BASE
 # args: <path>
@@ -444,29 +489,4 @@ function ssdfs_fs_whereis {
 
 	echo "$server $storage $linkpath $realpath $toppath"
 }
-
-# split a directory out into a separate volume
-# args: <path> <new volume name> <vol description>
-function ssdfs_vol_split {
-	path=$1
-	newvolname=$2
-	description=$3
-
-	whereis=$(ssdfs_fs_whereis $path)
-
-	storage=$(echo $whereis | cut -f2 -d' ')
-	realpath=$(echo $whereis | cut -f4 -d' ')
-	toppath=$(echo $whereis | cut -f5 -d' ')
-
-	if [ "$realpath" != '/' ] ; then
-		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
-	else
-		ssdfs_vol_create $storage $newvolname "$description"
-		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
-		echo contentpath = $contentpath
-	fi
-}
-
-	
-
 
