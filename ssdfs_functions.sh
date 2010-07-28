@@ -58,7 +58,7 @@ function ssdfs_storage_server_from_name {
 
 # return list of storage names on a given server
 # args: <server full or partial hostname>
-function ssdfs_storage_list_storage_on_server {
+function ssdfs_storage_list_storage_by_server {
 	server=$1
 
 	for s in $(ls -1 $SSDFS_S_REAL_BASE | grep "^$server") ; do
@@ -75,6 +75,26 @@ function ssdfs_storage_list {
 	for storage in $(ls $(ssdfs_base $pending)/.ssdfs/storage -1) ; do
 		echo $storage
 	done
+}
+
+# return list of volumes by uuid on a given store
+# args: <store>
+function ssdfs_storage_list_vol_by_uuid {
+	store=$1
+
+	realpath=$(ssdfs_storage_realpath_from_name $store)
+	ls -1 $realpath/vol/
+}
+
+# return list of volumes by name on a given store
+# args: <store>
+function ssdfs_storage_list_vol_by_name {
+	store=$1
+
+	for uuid in $(ssdfs_storage_list_vol_by_uuid $store) ; do
+		ssdfs_vol_get_info_by_uuid $uuid name
+	done
+		
 }
 
 # create new volume
@@ -241,7 +261,7 @@ function ssdfs_vol_get_info_by_name {
 	info=$2
 	pending=$3
 
-	linkpath=$(ssdfs_vol_fullpath_from_name $name $pending)
+	linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
 	if [ -f $linkpath/$info ] ; then
 		cat $linkpath/$info
 	fi
@@ -253,7 +273,7 @@ function ssdfs_vol_get_uuid_from_name {
 	name=$1
 	pending=$2
 
-	linkpath=$(ssdfs_vol_fullpath_from_name $name $pending)
+	linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
 	uuid=$(basename $(readlink $linkpath 2>/dev/null))
 	echo $uuid
 }
