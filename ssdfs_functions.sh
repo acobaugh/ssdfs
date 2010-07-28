@@ -426,8 +426,8 @@ function ssdfs_mount_create {
 	fi
 }
 
-## output volume name for a given mount point
-## args: <mountpoint list>
+# output volume name for a given mount point
+# args: <mountpoint list>
 function ssdfs_mount_ls {
 	mountpoints=$@
 
