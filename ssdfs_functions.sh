@@ -269,7 +269,6 @@ function ssdfs_vol_create {
 
 	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
 		echo "Volume \"$name\" already exists."
-		return 0
 	fi
 	
 	if [ -e "$(ssdfs_storage_realpath_from_name $storage)" ] ; then
@@ -286,14 +285,13 @@ function ssdfs_vol_create {
 			echo $createdOn > $realpath/createdOn
 			mkdir $realpath/content
 			echo New volume $name = $uuid
-			ssdfs_update_by-uuid && ssdfs_update_by-name && return 1
+			ssdfs_update_by-uuid 
+			ssdfs_update_by-name
 		else
 			echo "Failed to create volume $name [$uuid]."
-			return 0
 		fi
 	else
 		echo "$storage does not exist or is unknown to SSDFS."
-		exit 1
 	fi
 
 }
@@ -353,7 +351,7 @@ function ssdfs_vol_split {
 	realpath=$(echo $whereis | cut -f4 -d' ')
 	toppath=$(echo $whereis | cut -f5 -d' ')
 
-	if [ "$realpath" = '/' ] ; then
+	if [ "$realpath" = '/' ] || [ -z "$realpath" ] ; then
 		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
 	else
 		echo "Mapped $path -> $realpath / $toppath"
@@ -434,7 +432,6 @@ function ssdfs_mount_create {
 
 	if [ -e $target ] ; then
 		echo $target already exists
-		exit 0
 	else
 		if [ -L "$(ssdfs_vol_linkpath_from_name $volname)" ] ; then
 			ln -sf $(ssdfs_vol_linkpath_from_name $volname)/content $target
