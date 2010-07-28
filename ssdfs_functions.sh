@@ -357,8 +357,18 @@ function ssdfs_vol_split {
 	else
 		ssdfs_vol_create $storage $newvolname "$description"
 		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
-		rmdir $contentpath
-		mv $path $contentpath
+		# double-check that everything is good
+		if [ -d $contentpath ] ; then
+			rmdir $contentpath
+			echo "About to move $path to $contentpath"
+			echo -en "Continue? y/[n] "
+			read answer
+			if [ "$answer" = "y" ] ; then
+				mv $path $contentpath
+			else
+				echo mv $path $contentpath
+			fi
+		fi
 	fi
 }
 
