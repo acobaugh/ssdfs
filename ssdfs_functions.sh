@@ -346,6 +346,7 @@ function ssdfs_vol_split {
 	newvolname=$2
 	description=$3
 
+	echo "Attempting to determine real location of $path"
 	whereis=$(ssdfs_fs_whereis $path)
 
 	storage=$(echo $whereis | cut -f2 -d' ')
@@ -355,18 +356,23 @@ function ssdfs_vol_split {
 	if [ "$realpath" = '/' ] ; then
 		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
 	else
+		echo "Mapped $path -> $realpath / $toppath"
+		echo "...stored on $storage"
 		ssdfs_vol_create $storage $newvolname "$description"
 		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
 		# double-check that everything is good
 		if [ -d $contentpath ] ; then
 			rmdir $contentpath
 			echo "About to move $path to $contentpath"
+			echo "Please verify that we mapped the input path to the correct realpath,"
+			echo "and that we will be moving the input path to some other location on the same server/storage,"
+			echo "otherwise the 'mv' could take a very very long time."
 			echo -en "Continue? y/[n] "
 			read answer
 			if [ "$answer" = "y" ] ; then
 				mv $path $contentpath
 			else
-				echo mv $path $contentpath
+				echo mv $realpath/$toppath $contentpath
 			fi
 		fi
 	fi
