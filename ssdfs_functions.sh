@@ -284,6 +284,7 @@ function ssdfs_vol_create {
 			echo $description > $realpath/description
 			echo $createdBy > $realpath/createdBy
 			echo $createdOn > $realpath/createdOn
+			mkdir $realpath/content
 			echo New volume $name = $uuid
 			ssdfs_update_by-uuid && ssdfs_update_by-name && return 1
 		else
@@ -351,12 +352,13 @@ function ssdfs_vol_split {
 	realpath=$(echo $whereis | cut -f4 -d' ')
 	toppath=$(echo $whereis | cut -f5 -d' ')
 
-	if [ "$realpath" != '/' ] ; then
+	if [ "$realpath" = '/' ] ; then
 		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
 	else
 		ssdfs_vol_create $storage $newvolname "$description"
 		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
-		echo contentpath = $contentpath
+		rmdir $contentpath
+		mv $path $contentpath
 	fi
 }
 
