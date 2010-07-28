@@ -16,7 +16,7 @@ File / directory layout:
 							content/
 			vol/
 				by-uuid/
-					<vol uuid> -> ../storage/<storage>/vol/<vol uuid>
+					<vol uuid> -> ../../storage/<storage>/vol/<vol uuid>
 				by-name/
 					<vol name> -> ../by-uuid/<vol uuid>
 
