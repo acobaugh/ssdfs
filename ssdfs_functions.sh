@@ -347,9 +347,9 @@ function ssdfs_vol_split {
 	echo "Attempting to determine real location of $path"
 	whereis=$(ssdfs_fs_whereis $path)
 
-	storage=$(echo $whereis | cut -f2 -d' ')
-	realpath=$(echo $whereis | cut -f4 -d' ')
-	toppath=$(echo $whereis | cut -f5 -d' ')
+	storage=$(echo $whereis | cut -f2 -d,)
+	realpath=$(echo $whereis | cut -f4 -d,)
+	toppath=$(echo $whereis | cut -f5 -d,)
 
 	if [ "$realpath" = '/' ] || [ -z "$realpath" ] ; then
 		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
@@ -483,7 +483,7 @@ function ssdfs_fs_expand {
 		fi
 	done
 
-	echo "$test $toppath $linkpath"
+	echo "$test,$toppath,$linkpath"
 }
 
 # give verbose information about where a given file/directory is
@@ -494,15 +494,15 @@ function ssdfs_fs_whereis {
 
 	# ugh, this is hideous
 	expansion=$(ssdfs_fs_expand $path)
-	realpath=$(echo $expansion | cut -f 1 -d' ')
-	toppath=$(echo $expansion | cut -f 2 -d' ')
-	linkpath=$(echo $expansion | cut -f 3 -d ' ')
+	realpath=$(echo $expansion | cut -f 1 -d,)
+	toppath=$(echo $expansion | cut -f 2 -d,)
+	linkpath=$(echo $expansion | cut -f 3 -d,)
 
 	realpath2=$(echo $realpath | sed -e "s|$SSDFS_S_REAL_BASE/||")
 	server=$(echo $realpath2 | cut -f1 -d/)
 	storage=$(echo $realpath2 | cut -f2 -d/)
 	#realpath=$(echo $realpath2 | cut -f3- -d/)
 
-	echo "$server $storage $linkpath $realpath $toppath"
+	echo "$server,$storage,$linkpath,$realpath,$toppath"
 }
 
