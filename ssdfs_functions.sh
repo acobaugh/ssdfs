@@ -34,10 +34,10 @@ function ssdfs_base {
 # pretty print usage for a given storage name
 # args: <storage> [pending]
 function ssdfs_storage_usage {
-	storage=$1
-	pending=$2
+	local storage=$1
+	local pending=$2
 
-	realpath=$(ssdfs_storage_realpath_from_name $storage $pending)
+	local realpath=$(ssdfs_storage_realpath_from_name $storage $pending)
 	ls $realpath >/dev/null 2>&1 
 	df -h | grep $realpath 2>&1 | awk '{ print "size=" $1, "used=" $2, "avail=" $3, $4 }'
 }
@@ -54,8 +54,8 @@ function ssdfs_storage_realpath_from_name {
 # return name of server given storage name
 # args: <storage> [pending]
 function ssdfs_storage_server_from_name {
-	storage=$1
-	pending=$2
+	local storage=$1
+	local pending=$2
 
 	echo $(ssdfs_storage_realpath_from_name $storage $pending) | sed -e "s|$SSDFS_S_REAL_BASE/||;s|/$storage||"
 }
@@ -63,7 +63,7 @@ function ssdfs_storage_server_from_name {
 # return list of storage names on a given server
 # args: <server full or partial hostname>
 function ssdfs_storage_list_storage_by_server {
-	server=$1
+	local server=$1
 
 	for s in $(ls -1 $SSDFS_S_REAL_BASE | grep "^$server") ; do
 		echo = $s =
@@ -74,7 +74,7 @@ function ssdfs_storage_list_storage_by_server {
 # return list of all storage
 # args: [pending]
 function ssdfs_storage_list {
-	pending=$1
+	local pending=$1
 
 	for storage in $(ls $(ssdfs_base $pending)/.ssdfs/storage -1) ; do
 		echo $storage
@@ -84,16 +84,16 @@ function ssdfs_storage_list {
 # return list of volumes by uuid on a given store
 # args: <store>
 function ssdfs_storage_list_vol_by_uuid {
-	store=$1
+	local store=$1
 
-	realpath=$(ssdfs_storage_realpath_from_name $store)
+	local realpath=$(ssdfs_storage_realpath_from_name $store)
 	ls -1 $realpath/vol/
 }
 
 # return list of volumes by name on a given store
 # args: <store>
 function ssdfs_storage_list_vol_by_name {
-	store=$1
+	local store=$1
 
 	for uuid in $(ssdfs_storage_list_vol_by_uuid $store) ; do
 		ssdfs_vol_get_info_by_uuid $uuid name
@@ -109,8 +109,8 @@ function ssdfs_storage_list_vol_by_name {
 # return the would-be virtual path to a volume based on uuid
 # args: <uuid> [pending]
 function ssdfs_vol_linkpath_from_uuid {
-	uuid=$1
-	pending=$2
+	local uuid=$1
+	local pending=$2
 
 	echo $(ssdfs_base $pending)/.ssdfs/vol/by-uuid/$uuid
 }
@@ -139,10 +139,10 @@ function ssdfs_vol_realpath_from_name {
 # return the realpath to a volume based on uuid
 # args: <uuid> [pending]
 function ssdfs_vol_realpath_from_uuid {
-	uuid=$1
-	pending=$2
+	local uuid=$1
+	local pending=$2
 
-	linkpath=$(ssdfs_vol_linkpath_from_uuid $uuid $pending)
+	local linkpath=$(ssdfs_vol_linkpath_from_uuid $uuid $pending)
 	if [ -e "$linkpath" ] ; then
 		readlink -f $linkpath 2>/dev/null
 	fi
@@ -151,7 +151,7 @@ function ssdfs_vol_realpath_from_uuid {
 # return list of volumes by uuid
 # args: [pending]
 function ssdfs_vol_list_by-uuid {
-	pending=$1
+	local pending=$1
 
 	for uuid in $(ls -1 $(ssdfs_base $pending)/.ssdfs/vol/by-uuid/) ; do
 		echo $uuid
@@ -161,7 +161,7 @@ function ssdfs_vol_list_by-uuid {
 # return list of volume names
 # args: [pending]
 function ssdfs_vol_list_by-name {
-	pending=$1
+	local pending=$1
 
 	for volname in $(ls -1 $(ssdfs_base $pending)/.ssdfs/vol/by-name/) ; do
 		echo $volname
@@ -171,11 +171,11 @@ function ssdfs_vol_list_by-name {
 # get vol info by uuid
 # args: <vol uuid> <info> [pending]
 function ssdfs_vol_get_info_by_uuid {
-	name=$1
-	info=$2
-	pending=$3
+	local name=$1
+	local info=$2
+	local pending=$3
 
-	linkpath=$(ssdfs_vol_linkpath_from_uuid $name $pending)
+	local linkpath=$(ssdfs_vol_linkpath_from_uuid $name $pending)
 	if [ -f $linkpath/$info ] ; then
 		cat $linkpath/$info
 	fi
@@ -184,11 +184,11 @@ function ssdfs_vol_get_info_by_uuid {
 # get vol info by name
 # args: <vol name> <info> [pending]
 function ssdfs_vol_get_info_by_name {
-	name=$1
-	info=$2
-	pending=$3
+	local name=$1
+	local info=$2
+	local pending=$3
 
-	linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
+	local linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
 	if [ -f $linkpath/$info ] ; then
 		cat $linkpath/$info
 	fi
@@ -197,24 +197,24 @@ function ssdfs_vol_get_info_by_name {
 # get uuid from the name, based on the filesystem symlinks
 # args: <vol name> [pending]
 function ssdfs_vol_get_uuid_from_name {
-	name=$1
-	pending=$2
+	local name=$1
+	local pending=$2
 
-	linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
-	uuid=$(basename $(readlink $linkpath 2>/dev/null))
+	local linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
+	local uuid=$(basename $(readlink $linkpath 2>/dev/null))
 	echo $uuid
 }
 
 # rename volume by name
 # args: <old vol name> <new vol name>
 function ssdfs_vol_rename_by_name {
-	oldname=$1
-	newname=$2
+	local oldname=$1
+	local newname=$2
 
 	if [ -e "$(ssdfs_vol_linkpath_from_name $newname pending)" ] ; then
 		echo "Volume with name $newname already exists."
 	else
-		uuid=$(ssdfs_vol_get_uuid_from_name $oldname pending)
+		local uuid=$(ssdfs_vol_get_uuid_from_name $oldname pending)
 		ssdfs_vol_rename_by_uuid $uuid $newname
 	fi
 }
@@ -238,8 +238,8 @@ function ssdfs_vol_rename_by_uuid {
 # display all info for a given volume by uuid
 # args: <vol uuid> [pending]
 function ssdfs_vol_exam_uuid {
-	uuid=$1
-	pending=$2
+	local uuid=$1
+	local pending=$2
 
 	echo uuid = $uuid
 	for info in $SSDFS_VOLINFO_LIST ; do
@@ -250,10 +250,10 @@ function ssdfs_vol_exam_uuid {
 # display all info for a given volume by name
 # args: <vol name> [pending]
 function ssdfs_vol_exam_name {
-	name=$1
-	pending=$2
+	local name=$1
+	local pending=$2
 
-	uuid=$(ssdfs_vol_get_uuid_from_name $name $pending)
+	local uuid=$(ssdfs_vol_get_uuid_from_name $name $pending)
 	ssdfs_vol_exam_uuid $uuid $pending
 }
 
@@ -300,15 +300,15 @@ function ssdfs_vol_create {
 # destroy volume by name, calls the destroy_by-uuid function after looking up uuid by name
 # args: <vol name> [uuid]
 function ssdfs_vol_destroy_by-name {
-	name=$1
+	local name=$1
 
 	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
-		uuid=$(ssdfs_vol_get_uuid_from_name $name pending)
+		local uuid=$(ssdfs_vol_get_uuid_from_name $name pending)
 		echo "Mapped volume $name to $uuid"
 		if [ $(ls -1 $(ssdfs_vol_linkpath_from_name $name.CONFLICT.* pending) 2>/dev/null | wc -l) -gt 1 ] ; then
 			echo "There are also conflicting volumes by that name:"
 			for linkpath in $(ssdfs_vol_linkpath_from_name ${name}.CONFLICT.\* pending) ; do
-				v=$(basename $linkpath)
+				local v=$(basename $linkpath)
 				echo $(ssdfs_vol_get_uuid_from_name $v pending) = $v
 			done
 			echo 
@@ -324,9 +324,9 @@ function ssdfs_vol_destroy_by-name {
 # destroy volume by uuid
 # args: <vol uuid>
 function ssdfs_vol_destroy_by-uuid {
-	uuid=$1
+	local uuid=$1
 
-	realpath=$(ssdfs_vol_realpath_from_uuid $uuid pending)
+	local realpath=$(ssdfs_vol_realpath_from_uuid $uuid pending)
 	echo About to destroy this volume:
 	ssdfs_vol_exam_uuid $uuid pending
 	echo -en "Continue? y/[n]  "
@@ -392,7 +392,7 @@ function ssdfs_update_by-name {
 	echo "Updating volume by-name links..."
 	rm -f $(ssdfs_base pending)/.ssdfs/vol/by-name/*
 	for uuid in $(ssdfs_vol_list_by-uuid pending) ; do
-		volname=$(ssdfs_vol_get_info_by_uuid $uuid name pending)
+		local volname=$(ssdfs_vol_get_info_by_uuid $uuid name pending)
 		# check for conflicts
 		if [ -L "$(ssdfs_base pending)/.ssdfs/vol/by-name/$volname" ] ; then
 			let i=1
@@ -432,8 +432,8 @@ function ssdfs_update_by-uuid {
 # create a mountpoint
 # args: <mountpoint name> <vol name>
 function ssdfs_mount_create {
-	target=$1
-	volname=$2
+	local target=$1
+	local volname=$2
 
 	if [ -e $target ] ; then
 		echo $target already exists
@@ -449,10 +449,10 @@ function ssdfs_mount_create {
 # output volume name for a given mount point
 # args: <mountpoint list>
 function ssdfs_mount_ls {
-	mountpoints=$@
+	local mountpoints=$@
 
 	for mount in $mountpoints ; do
-		link=$(readlink -f $mount 2>/dev/null)
+		local link=$(readlink -f $mount 2>/dev/null)
 		if [ "$(basename $link 2>/dev/null)" = 'content' ] ; then
 			echo $mount = $(basename $(dirname $link))
 		fi
@@ -467,16 +467,16 @@ function ssdfs_mount_ls {
 # args: <path>
 # output: <realpath> <relative path> <linkpath>
 function ssdfs_fs_expand {
-	input=$1
+	local input=$1
 
 	# I don't like doing regexes in bash
 	if [[ ! "$input" =~ '^/.+' ]] ; then
 		input="$(pwd)/$input"
 	fi
 	
-	toppath=''
-	linkpath=''
-	test=$(readlink -f $input)
+	local toppath=''
+	local linkpath=''
+	local test=$(readlink -f $input)
 
 	while [ -z "$(echo $test | egrep "^$SSDFS_S_REAL_BASE\/.+")" ] && [ "$test" != '/' ] ; do 
 		if [ -L "$test" ] ; then 
@@ -495,17 +495,17 @@ function ssdfs_fs_expand {
 # args: <path>
 # output: <server> <storage> <linkpath> <realpath> <toppath>
 function ssdfs_fs_whereis {
-	path=$1
+	local path=$1
 
 	# ugh, this is hideous
-	expansion=$(ssdfs_fs_expand $path)
-	realpath=$(echo $expansion | cut -f 1 -d,)
-	toppath=$(echo $expansion | cut -f 2 -d,)
-	linkpath=$(echo $expansion | cut -f 3 -d,)
+	local expansion=$(ssdfs_fs_expand $path)
+	local realpath=$(echo $expansion | cut -f 1 -d,)
+	local toppath=$(echo $expansion | cut -f 2 -d,)
+	local linkpath=$(echo $expansion | cut -f 3 -d,)
 
-	realpath2=$(echo $realpath | sed -e "s|$SSDFS_S_REAL_BASE/||")
-	server=$(echo $realpath2 | cut -f1 -d/)
-	storage=$(echo $realpath2 | cut -f2 -d/)
+	local realpath2=$(echo $realpath | sed -e "s|$SSDFS_S_REAL_BASE/||")
+	local server=$(echo $realpath2 | cut -f1 -d/)
+	local storage=$(echo $realpath2 | cut -f2 -d/)
 	#realpath=$(echo $realpath2 | cut -f3- -d/)
 
 	echo "$server,$storage,$linkpath,$realpath,$toppath"
