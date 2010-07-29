@@ -365,14 +365,14 @@ function ssdfs_vol_split {
 			# double-check that everything is good
 			if [ -d $contentpath ] ; then
 				rmdir $contentpath
-				echo "About to move $path to $contentpath"
-				echo "Please verify that we mapped the input path to the correct realpath,"
-				echo "and that we will be moving the input path to some other location on the same server/storage,"
-				echo "otherwise the 'mv' could take a very very long time."
+				echo "About to move ${realpath}${toppath} to $contentpath"
 				echo -en "Continue? y/[n] "
 				read answer
 				if [ "$answer" = "y" ] ; then
 					mv ${realpath}${toppath} $contentpath
+					if [ $? != 0 ] ; then
+						echo "FAILED: mv ${realpath}${toppath} $contentpath"
+					fi
 				else
 					echo mv ${realpath}${toppath} $contentpath
 				fi
