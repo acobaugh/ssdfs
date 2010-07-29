@@ -18,7 +18,7 @@ SSDFS_VOLINFO_LIST='name description createdBy createdOn volumeSize diskUsage'
 # return the base directory of the filesystem
 # args: [pending]
 function ssdfs_base {
-	pending=$1
+	local pending=$1
 
 	if [ "$pending" = 'pending' ]; then
 		echo -n "$SSDFS_PENDING/$SSDFS_BASE"
@@ -45,8 +45,8 @@ function ssdfs_storage_usage {
 # return the realpath for a given storage name
 # args: <storage> [pending]
 function ssdfs_storage_realpath_from_name {
-	storage=$1
-	pending=$2
+	local storage=$1
+	local pending=$2
 	
 	readlink $(ssdfs_base $pending)/.ssdfs/storage/$storage
 }
@@ -118,8 +118,8 @@ function ssdfs_vol_linkpath_from_uuid {
 # return the would-be virtual path to a volume based on name. can also accept globs as <name>
 # args: <name> [pending]
 function ssdfs_vol_linkpath_from_name {
-	name=$1
-	pending=$2
+	local name=$1
+	local pending=$2
 
 	echo $(ssdfs_base $pending)/.ssdfs/vol/by-name/$name
 }
@@ -127,10 +127,10 @@ function ssdfs_vol_linkpath_from_name {
 # return the realpath to a volume based on name. can also accept globs as <name>
 # args: <name> [pending]
 function ssdfs_vol_realpath_from_name {
-	name=$1
-	pending=$2
+	local name=$1
+	local pending=$2
 
-	linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
+	local linkpath=$(ssdfs_vol_linkpath_from_name $name $pending)
 	if [ -e "$linkpath" ] ; then
 		readlink -f $linkpath 2>/dev/null
 	fi
@@ -222,14 +222,15 @@ function ssdfs_vol_rename_by_name {
 # rename volume by uuid
 # args: <old vol uuid> <new vol name>
 function ssdfs_vol_rename_by_uuid {
-	uuid=$1
-	newname=$2
+	local uuid=$1
+	local newname=$2
 
 	if [ -e "$(ssdfs_vol_linkpath_from_name $newname pending)" ] ; then
 		echo "Volume with name $newname already exists."
 	else
-		linkpath=$(ssdfs_vol_linkpath_from_uuid $uuid pending)
-		echo $newname $linkpath/name
+		local linkpath=$(ssdfs_vol_linkpath_from_uuid $uuid pending)
+		echo $linkpath
+		echo $newname > $linkpath/name
 		ssdfs_update_by-name
 	fi
 }
@@ -259,20 +260,20 @@ function ssdfs_vol_exam_name {
 # create new volume
 # args: <storage> <vol name> <vol desc>
 function ssdfs_vol_create {
-	storage=$1
-	name=$2
-	description=$3
+	local storage=$1
+	local name=$2
+	local description=$3
 	
-	uuid=$(uuidgen)
-	createdBy="$USER"
-	createdOn=$(date +%s)
+	local uuid=$(uuidgen)
+	local createdBy="$USER"
+	local createdOn=$(date +%s)
 
 	if [ -e "$(ssdfs_vol_linkpath_from_name $name pending)" ] ; then
 		echo "Volume \"$name\" already exists."
 	fi
 	
 	if [ -e "$(ssdfs_storage_realpath_from_name $storage)" ] ; then
-		realpath="$(ssdfs_storage_realpath_from_name $storage)/vol/$uuid"
+		local realpath="$(ssdfs_storage_realpath_from_name $storage)/vol/$uuid"
 		echo "Creating volume on realpath $realpath"
 		mkdir -p $realpath
 		if [ $? -eq 0 ] ; then
@@ -340,37 +341,41 @@ function ssdfs_vol_destroy_by-uuid {
 # split a directory out into a separate volume
 # args: <path> <new volume name> <vol description>
 function ssdfs_vol_split {
-	path=$1
-	newvolname=$2
-	description=$3
+	local path=$1
+	local newvolname=$2
+	local description=$3
 
-	echo "Attempting to determine real location of $path"
-	whereis=$(ssdfs_fs_whereis $path)
-
-	storage=$(echo $whereis | cut -f2 -d,)
-	realpath=$(echo $whereis | cut -f4 -d,)
-	toppath=$(echo $whereis | cut -f5 -d,)
-
-	if [ "$realpath" = '/' ] || [ -z "$realpath" ] ; then
-		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
+	if [ -e "$(ssdfs_vol_linkpath_from_name $newvolname pending)" ] ; then
+		echo "Volume with name $newvolname already exists."
 	else
-		echo "Mapped $path -> $realpath $toppath"
-		echo "...stored on $storage"
-		ssdfs_vol_create $storage $newvolname "$description"
-		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
-		# double-check that everything is good
-		if [ -d $contentpath ] ; then
-			rmdir $contentpath
-			echo "About to move $path to $contentpath"
-			echo "Please verify that we mapped the input path to the correct realpath,"
-			echo "and that we will be moving the input path to some other location on the same server/storage,"
-			echo "otherwise the 'mv' could take a very very long time."
-			echo -en "Continue? y/[n] "
-			read answer
-			if [ "$answer" = "y" ] ; then
-				mv $path $contentpath
-			else
-				echo mv $realpath/$toppath $contentpath
+		echo "Attempting to determine real location of $path"
+		local whereis=$(ssdfs_fs_whereis $path)
+
+		local storage=$(echo $whereis | cut -f2 -d,)
+		local realpath=$(echo $whereis | cut -f4 -d,)
+		local toppath=$(echo $whereis | cut -f5 -d,)
+
+		if [ "$realpath" = '/' ] || [ -z "$realpath" ] ; then
+			echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
+		else
+			echo "Mapped $path -> $realpath $toppath"
+			echo "...stored on $storage"
+			ssdfs_vol_create $storage $newvolname "$description"
+			local contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
+			# double-check that everything is good
+			if [ -d $contentpath ] ; then
+				rmdir $contentpath
+				echo "About to move $path to $contentpath"
+				echo "Please verify that we mapped the input path to the correct realpath,"
+				echo "and that we will be moving the input path to some other location on the same server/storage,"
+				echo "otherwise the 'mv' could take a very very long time."
+				echo -en "Continue? y/[n] "
+				read answer
+				if [ "$answer" = "y" ] ; then
+					mv ${realpath}${toppath} $contentpath
+				else
+					echo mv ${realpath}${toppath} $contentpath
+				fi
 			fi
 		fi
 	fi
