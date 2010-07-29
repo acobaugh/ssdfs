@@ -354,7 +354,7 @@ function ssdfs_vol_split {
 	if [ "$realpath" = '/' ] || [ -z "$realpath" ] ; then
 		echo "$path -> $realpath is not part of SSDFS, so you must move/split manually"
 	else
-		echo "Mapped $path -> $realpath / $toppath"
+		echo "Mapped $path -> $realpath $toppath"
 		echo "...stored on $storage"
 		ssdfs_vol_create $storage $newvolname "$description"
 		contentpath="$(ssdfs_vol_realpath_from_name $newvolname pending)/content"
@@ -470,7 +470,8 @@ function ssdfs_fs_expand {
 	fi
 	
 	toppath=''
-	test=$input
+	linkpath=''
+	test=$(readlink -f $input)
 
 	while [ -z "$(echo $test | egrep "^$SSDFS_S_REAL_BASE\/.+")" ] && [ "$test" != '/' ] ; do 
 		if [ -L "$test" ] ; then 
