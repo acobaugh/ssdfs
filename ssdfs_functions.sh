@@ -372,6 +372,8 @@ function ssdfs_vol_split {
 					mv ${realpath}${toppath} $contentpath
 					if [ $? != 0 ] ; then
 						echo "FAILED: mv ${realpath}${toppath} $contentpath"
+					else
+						echo Done.
 					fi
 				else
 					echo mv ${realpath}${toppath} $contentpath
@@ -469,6 +471,9 @@ function ssdfs_mount_ls {
 function ssdfs_fs_expand {
 	local input=$1
 
+	if [ ! -e "$input" ] ; then
+		return 1
+	fi
 	# I don't like doing regexes in bash
 	if [[ ! "$input" =~ '^/.+' ]] ; then
 		input="$(pwd)/$input"
