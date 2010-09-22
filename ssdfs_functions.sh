@@ -245,6 +245,11 @@ function ssdfs_vol_exam_uuid {
 	for info in $SSDFS_VOLINFO_LIST ; do
 		echo $info = $(ssdfs_vol_get_info_by_uuid $uuid $info $pending)
 	done
+	local whereis=$(ssdfs_fs_whereis $(ssdfs_vol_realpath_from_uuid $uuid))
+	local server=$(echo $whereis | cut -f1 -d,)
+	local storage=$(echo $whereis | cut -f2 -d,)
+	echo server = $server
+	echo storage = $storage
 }
 
 # display all info for a given volume by name
